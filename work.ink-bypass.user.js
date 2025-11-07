@@ -520,55 +520,59 @@
 (function() {
     'use strict';
 
-    let clickGTD = false;
+    // Flag to prevent multiple access button clicks
+    let hasClickedAccessButton = false;
 
-    function abc() {
+    // Continuously removes access modals or panels if found
+    function removeAccessPanelsLoop() {
         const accessOptionsDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
-        const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
+        const modalOverlayDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
 
         if (accessOptionsDiv) {
             accessOptionsDiv.remove();
-            abcd();
+            tryClickAccessButton();
         }
 
-        if (modalDiv) {
-            modalDiv.remove();
-            abcd();
+        if (modalOverlayDiv) {
+            modalOverlayDiv.remove();
+            tryClickAccessButton();
         }
 
-        // Re-run async 0ms
-        setTimeout(abc, 0);
+        // Keep checking asynchronously
+        setTimeout(removeAccessPanelsLoop, 0);
     }
 
-    function abcd() {
-        const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative.svelte-1ao8oou');
-        if (!GTDiv) return;
+    // Attempts to find and click the access button once it's available
+    function tryClickAccessButton() {
+        const accessButtonDiv = document.querySelector('div.button.large.accessBtn.pos-relative.svelte-1ao8oou');
+        if (!accessButtonDiv) return;
 
-        const disabled = GTDiv.classList.contains("button-disabled");
+        const isDisabled = accessButtonDiv.classList.contains("button-disabled");
 
-        if (!disabled && !clickGTD) {
+        if (!isDisabled && !hasClickedAccessButton) {
             try {
-                clickGTD = true;
-                GTDiv.click();
+                hasClickedAccessButton = true;
+                accessButtonDiv.click();
             } catch (e) {
-                console.log("Error in GTDiv", e);
+                console.log("Error clicking access button:", e);
             }
-            abcde();
+            removeGoogleOverlayLoop();
         }
 
-        // Async re-run
-        setTimeout(abcd, 0);
+        // Keep checking
+        setTimeout(tryClickAccessButton, 0);
     }
 
-    function abcde() {
-        const GoogleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
-        if (GoogleDiv) {
-            GoogleDiv.remove();
+    // Continuously removes any white overlay (Google-like login sheet)
+    function removeGoogleOverlayLoop() {
+        const googleOverlay = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
+        if (googleOverlay) {
+            googleOverlay.remove();
         }
 
-        // Async re-run
-        setTimeout(abcde, 0);
+        setTimeout(removeGoogleOverlayLoop, 0);
     }
 
-    window.addEventListener('load', () => setTimeout(abc, 0));
+    // Start the loop when the page finishes loading
+    window.addEventListener('load', () => setTimeout(removeAccessPanelsLoop, 0));
 })();
