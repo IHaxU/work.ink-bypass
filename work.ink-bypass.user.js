@@ -453,56 +453,116 @@
 
     // Define blocked ad classes and ids
     const blockedClasses = [
-        "adsbygoogle",
-        "adsense-wrapper",
-        "inline-ad",
-        "gpt-billboard-container"
-    ];
+            "adsbygoogle",
+            "adsense-wrapper",
+            "inline-ad",
+            "gpt-billboard-container",
+            "[&:not(:first-child)]:mt-12",
+            "lg:block"
+        ];
 
-    const blockedIds = [
-        "billboard-1",
-        "billboard-2",
-        "billboard-3",
-        "sidebar-ad-1",
-        "skyscraper-ad-1"
-    ];
+        const blockedIds = [
+            "billboard-1",
+            "billboard-2",
+            "billboard-3",
+            "sidebar-ad-1",
+            "skyscraper-ad-1"
+        ];
 
-    // Remove injected ads
-    const observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-            for (const node of m.addedNodes) {
-                if (node.nodeType === 1) {
-                    // Block by class
-                    blockedClasses.forEach((cls) => {
-                        // Direct match
-                        if (node.classList?.contains(cls)) {
-                            node.remove();
-                            log("Removed injected ad by class:", node);
-                        }
-                        // Or children inside the node
-                        node.querySelectorAll?.(`.${cls}`).forEach((el) => {
-                            el.remove();
-                            log("Removed nested ad:", el);
+        setupInterception();
+
+        const ob = new MutationObserver(mutations => {
+            for (const m of mutations) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType === 1) {
+                        blockedClasses.forEach((cls) => {
+                            if (node.classList?.contains(cls)) {
+                                node.remove();
+                                console.log('[Debug]: Removed ad by class:', cls, node);
+                            }
+                            node.querySelectorAll?.(`.${CSS.escape(cls)}`).forEach((el) => {
+                                el.remove();
+                                console.log('[Debug]: Removed nested ad by class:', cls, el);
+                            });
                         });
-                    });
-                    // Block by id
-                    blockedIds.forEach((id) => {
-                        // Direct match
-                        if (node.id === id) {
-                            node.remove();
-                            log("Removed injected ad by id:", node);
-                        }
-                        // Or children inside the node
-                        node.querySelectorAll?.(`#${id}`).forEach((el) => {
-                            el.remove();
-                            log("Removed nested ad:", el);
+
+                        blockedIds.forEach((id) => {
+                            if (node.id === id) {
+                                node.remove();
+                                console.log('[Debug]: Removed ad by id:', id, node);
+                            }
+                            node.querySelectorAll?.(`#${id}`).forEach((el) => {
+                                el.remove();
+                                console.log('[Debug]: Removed nested ad by id:', id, el);
+                            });
                         });
-                    });
+
+                        if (node.matches('.button.large.accessBtn.pos-relative.svelte-1ao8oou') && node.textContent.includes('Go To Destination')) {
+                            node.click()
+                        }
+                    }
                 }
             }
-        }
-    });
+        });
+        ob.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+})();
 
-    // Start observing the document for changes
-    observer.observe(unsafeWindow.document.documentElement, { childList: true, subtree: true });
+(function() {
+    'use strict';
+
+    // Flag to prevent multiple access button clicks
+    let hasClickedAccessButton = false;
+
+    // Continuously removes access modals or panels if found
+    function removeAccessPanelsLoop() {
+        const accessOptionsDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
+        const modalOverlayDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
+
+        if (accessOptionsDiv) {
+            accessOptionsDiv.remove();
+            tryClickAccessButton();
+        }
+
+        if (modalOverlayDiv) {
+            modalOverlayDiv.remove();
+            tryClickAccessButton();
+        }
+
+        // Keep checking asynchronously
+        setTimeout(removeAccessPanelsLoop, 0);
+    }
+
+    // Attempts to find and click the access button once it's available
+    function tryClickAccessButton() {
+        const accessButtonDiv = document.querySelector('div.button.large.accessBtn.pos-relative.svelte-1ao8oou');
+        if (!accessButtonDiv) return;
+
+        const isDisabled = accessButtonDiv.classList.contains("button-disabled");
+
+        if (!isDisabled && !hasClickedAccessButton) {
+            try {
+                hasClickedAccessButton = true;
+                accessButtonDiv.click();
+            } catch (e) {
+                console.log("Error clicking access button:", e);
+            }
+            removeGoogleOverlayLoop();
+        }
+
+        // Keep checking
+        setTimeout(tryClickAccessButton, 0);
+    }
+
+    // Continuously removes any white overlay (Google-like login sheet)
+    function removeGoogleOverlayLoop() {
+        const googleOverlay = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
+        if (googleOverlay) {
+            googleOverlay.remove();
+        }
+
+        setTimeout(removeGoogleOverlayLoop, 0);
+    }
+
+    // Start the loop when the page finishes loading
+    window.addEventListener('load', () => setTimeout(removeAccessPanelsLoop, 0));
 })();
