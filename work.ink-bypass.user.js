@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         work.ink bypass
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-06
+// @version      2025-11-16
 // @description  bypasses work.ink shortened links
 // @author       IHaxU
 // @match        https://work.ink/*
@@ -422,14 +422,14 @@
             const result = originalPromiseAll.call(this, promises);
 
             if (!intercepted) {
-                intercepted = true;
-
                 return await new Promise((resolve) => {
                     result.then(([kit, app, ...args]) => {
                         log("SvelteKit modules loaded");
 
                         const [success, wrappedKit] = createKitProxy(kit);
                         if (success) {
+                            intercepted = true;
+
                             // Restore original Promise.all
                             Promise.all = originalPromiseAll;
 
