@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         work.ink bypass
 // @namespace    http://tampermonkey.net/
-// @version      2026-01-18
+// @version      2026-01-18-1
 // @description  bypasses work.ink shortened links
 // @author       IHaxU
 // @match        https://work.ink/*
@@ -393,37 +393,54 @@
         return Reflect.set(target, prop, value, receiver);
     }
 
-    function createComponentProxy(component) {
+    function pageComponentContextSetProxy(target, prop, value, receiver) {
+        log("Page component property set:", prop, value);
+
+        if (prop === "1") {
+            log(`Blocked monocle popup by overriding context property ${value}.`);
+            return value;
+        }
+
+        return Reflect.set(target, prop, value, receiver);
+    }
+
+    function createComponentProxy(component, componentCallback, setCallback) {
         return new Proxy(component, {
             construct(target, args) {
                 const result = Reflect.construct(target, args);
                 log("Intercepted SvelteKit component construction:", target, args, result);
 
-                result.$$.ctx = new Proxy(result.$$.ctx, {
-                    set: checkForSessionController
-                });
+                if (componentCallback) {
+                    componentCallback(result);
+                }
+
+                if (setCallback) {
+                    result.$$.ctx = new Proxy(result.$$.ctx, {
+                        set: setCallback
+                    });
+                }
 
                 return result;
             }
         });
     }
 
-    function createNodeResultProxy(result) {
+    function createNodeResultProxy(result, componentCallback, setCallback) {
         return new Proxy(result, {
             get(target, prop, receiver) {
                 if (prop === "component") {
-                    return createComponentProxy(target.component);
+                    return createComponentProxy(target.component, componentCallback, setCallback);
                 }
                 return Reflect.get(target, prop, receiver);
             }
         });
     }
 
-    function createNodeProxy(oldNode) {
+    function createNodeProxy(oldNode, componentCallback, setCallback) {
         return async (...args) => {
             const result = await oldNode(...args);
             log("Intercepted SvelteKit node result:", result);
-            return createNodeResultProxy(result);
+            return createNodeResultProxy(result, componentCallback, setCallback);
         };
     }
 
@@ -445,8 +462,11 @@
                             typeof options === "object" &&
                             typeof options.node_ids === "object") {
 
-                            const oldNode = appModule.nodes[options.node_ids[1]];
-                            appModule.nodes[options.node_ids[1]] = createNodeProxy(oldNode);
+                            const oldPageNode = appModule.nodes[options.node_ids[0]];
+                            appModule.nodes[options.node_ids[0]] = createNodeProxy(oldPageNode, undefined, pageComponentContextSetProxy);
+                            
+                            const oldAdNode = appModule.nodes[options.node_ids[1]];
+                            appModule.nodes[options.node_ids[1]] = createNodeProxy(oldAdNode, undefined, checkForSessionController);
                         }
 
                         log("kit.start intercepted!", options);
